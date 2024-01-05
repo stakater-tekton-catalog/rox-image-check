@@ -1,2 +1,15 @@
-# rox-image-check
-A tekton task for rox-image-check
+# Stakater Cluster Task for Rox Image Check
+
+## Local Development
+
+### Install
+
+```
+tilt up
+```
+
+### Teardown
+
+```
+tilt down
+```
