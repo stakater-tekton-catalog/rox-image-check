@@ -20,9 +20,8 @@ spec:
     - name: ROX_API_TOKEN
       description: Secret containing the StackRox API token with CI permissions
       type: string
-    - name: IMAGE
-      description: |
-        Full name of image to scan (example -- gcr.io/rox/sample:5.0-rc1)
+    - name: IMAGE_NAME
+      description: Reference of the image buildah will produce.
       type: string
     - name: INSECURE_SKIP_TLS_VERIFY
       default: 'false'
@@ -53,6 +52,12 @@ spec:
             secretKeyRef:
               key: rox-central-endpoint
               name: $(params.ROX_CENTRAL_ENDPOINT)
+        - name: IMAGE_REGISTRY
+          valueFrom:
+            secretKeyRef:
+              name: docker-reg-creds
+              key: url
+              optional: true
       image: >-
         docker.io/centos@sha256:a1801b843b1bfaf77c501e7a6d3f709401a1e0c83863037fa3aab063a7fdb9dc
       name: rox-image-check
@@ -61,7 +66,7 @@ spec:
         #!/usr/bin/env bash
         if [[ $(params.BUILD_IMAGE) == true ]]; then
           set +x
-        
+          #TODO Split into functions        
           curl -s -k -L -H "Authorization: Bearer $ROX_API_TOKEN" \
             "https://$ROX_CENTRAL_ENDPOINT/api/cli/download/roxctl-linux" \
             --output ./roxctl  \
@@ -70,15 +75,29 @@ spec:
           chmod +x ./roxctl  > /dev/null
         
           if [[ $(params.IGNORE_VULNERABILITIES) == false ]]; then
-            ./roxctl image check \
-            $( [ "$(params.INSECURE_SKIP_TLS_VERIFY)" = "true" ] && \
-            echo -n "--insecure-skip-tls-verify") \
-            -e "$ROX_CENTRAL_ENDPOINT" --image "$(params.IMAGE)"
+             if [ $(params.IMAGE_REGISTRY) != "NA" ]; then
+               ./roxctl image check \
+               $( [ "$(params.INSECURE_SKIP_TLS_VERIFY)" = "true" ] && \
+               echo -n "--insecure-skip-tls-verify") \
+               -e "$ROX_CENTRAL_ENDPOINT" --image $(params.IMAGE_REGISTRY)/$(params.IMAGE_NAME)
+             else
+               ./roxctl image check \
+               $( [ "$(params.INSECURE_SKIP_TLS_VERIFY)" = "true" ] && \
+               echo -n "--insecure-skip-tls-verify") \
+               -e "$ROX_CENTRAL_ENDPOINT" --image "${IMAGE_REGISTRY}/$(params.IMAGE_NAME)"
+             fi
           else
-            output=$(./roxctl image check \
-            $( [ "$(params.INSECURE_SKIP_TLS_VERIFY)" = "true" ] && \
-            echo -n "--insecure-skip-tls-verify") \
-            -e "$ROX_CENTRAL_ENDPOINT" --image "$(params.IMAGE)" 2>&1)
+            if [ $(params.IMAGE_REGISTRY) != "NA" ]; then
+              output=$(./roxctl image check \
+              $( [ "$(params.INSECURE_SKIP_TLS_VERIFY)" = "true" ] && \
+              echo -n "--insecure-skip-tls-verify") \
+              -e "$ROX_CENTRAL_ENDPOINT" --image "$(params.IMAGE_REGISTRY)/$(params.IMAGE_NAME)" 2>&1)
+            else
+              output=$(./roxctl image check \
+              $( [ "$(params.INSECURE_SKIP_TLS_VERIFY)" = "true" ] && \
+              echo -n "--insecure-skip-tls-verify") \
+              -e "$ROX_CENTRAL_ENDPOINT" --image "${IMAGE_REGISTRY}/$(params.IMAGE_NAME)" 2>&1)
+            fi
 
             exit_code=$?
         
@@ -90,7 +109,7 @@ spec:
           output=$(./roxctl image check \
             $( [ "$(params.INSECURE_SKIP_TLS_VERIFY)" = "true" ] && \
             echo -n "--insecure-skip-tls-verify") \
-            -e "$ROX_CENTRAL_ENDPOINT" --image "$(params.IMAGE)" 2>&1)
+            -e "$ROX_CENTRAL_ENDPOINT" --image "${IMAGE_REGISTRY}/$(params.IMAGE_NAME)" 2>&1)
 
           exit_code=$?
         
