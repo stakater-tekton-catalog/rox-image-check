@@ -36,6 +36,9 @@ spec:
     - name: IGNORE_VULNERABILITIES
       default: 'true'
       description: Determines whether to ignore the errors reported by rhacs
+    - name: IMAGE_REGISTRY
+      default: 'NA'
+      description: Url of the image registry
   results:
     - description: Output of `roxctl image check`
       name: check_output
